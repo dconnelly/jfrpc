@@ -1,0 +1,7 @@
+plugins {
+  id 'java-library'
+}
+
+test {
+  jvmArgs '--limit-modules', 'java.base,java.logging,java.management,jdk.jfr'
+}

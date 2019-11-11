@@ -1,0 +1,237 @@
+// Copyright © 2019 David Connelly (dconnelly@gmail.com)
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package jfrpc;
+
+option java_multiple_files = false;
+option java_package = "io.dconnelly.jfrpc";
+option java_outer_classname = "FlightRecorderProto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+// gRPC interface for the Java Flight Recorder (JFR) API included in Java 9+.
+service FlightRecorder {
+  // Creates a new recording. The recording will be in the NEW state.
+  rpc CreateRecording (CreateRecordingRequest) returns (Recording) {}
+  // Starts a recording. The recording must be in the NEW state, and will then become RUNNING.
+  rpc StartRecording (RecordingId) returns (Recording) {}
+  // Schedules a recording to start after a specified delay. The recording must be in the NEW state,
+  // and will then become DELAYED.
+  rpc ScheduleRecording (ScheduleRecordingRequest) returns (Recording) {}
+  // Stops a recording. The recording must be in the RUNNING state, and will then become STOPPED.
+  rpc StopRecording (RecordingId) returns (Recording) {}
+  // Closes a recording and cleans up associated resources. The recording will then become CLOSED.
+  rpc CloseRecording (RecordingId) returns (Recording) {}
+  // Returns information about a specific recording.
+  rpc GetRecording (RecordingId) returns (Recording) {}
+  // Returns information about all active recordings.
+  rpc GetRecordings (google.protobuf.Empty) returns (Recordings) {}
+  // Takes a recording snapshot.
+  rpc TakeSnapshot (google.protobuf.Empty) returns (Recording) {}
+  // Dumps a recording to disk.
+  rpc DumpRecording (DumpRecordingRequest) returns (google.protobuf.Empty) {}
+  // Streams recording bytes. The recording must be in the STOPPED state.
+  rpc StreamRecordingBytes (StreamRecordingBytesRequest) returns (stream RecordingBytes) {}
+  // Returns available recording configurations.
+  rpc GetConfigurations (google.protobuf.Empty) returns (Configurations) {}
+  // Returns available recording events.
+  rpc GetEventTypes (google.protobuf.Empty) returns (EventTypes) {}
+  // Streams recording state changes.
+  rpc StreamRecordingChanges (google.protobuf.Empty) returns (stream Recording) {}
+}
+
+// Recording id.
+message RecordingId {
+  // The recording id.
+  uint64 id = 1;
+}
+
+// CreateRecording request.
+message CreateRecordingRequest {
+  // If specified, indicates the maximum number of bytes of recording data that should be retained.
+  uint64 max_size = 1;
+  // If specified, indicates the maximum age of recording data that should be retained.
+  google.protobuf.Duration max_age = 2;
+  // If specified, indicates the server file location where recording data should be automatically
+  // saved when recording is stopped.
+  string destination = 3;
+  // The optional name of the recording, otherwise defaults to the recording id.
+  string name = 4;
+  // Indicates whether the recording should be automatically saved on exit.
+  bool dump_on_exit = 5;
+  // Indicates whether recording data should be buffered to disk.
+  bool disk = 6;
+  // The optional duration for the recording, after which time the recording will be automatically stopped.
+  google.protobuf.Duration duration = 7;
+  // The settings for the recording. These will be merged with settings obtained from configuration if specified.
+  map<string, string> settings = 8;
+  // Optional recording configuration
+  oneof configuration {
+    // The name of a pre-defined configuration to use, for example "default".
+    string configuration_name = 9;
+    // The configuration contents to use.
+    string configuration_contents = 10;
+  }
+}
+
+// ScheduleRecording request.
+message ScheduleRecordingRequest {
+  // The recording id.
+  uint64 id = 1;
+  // The time to wait before starting the recording
+  google.protobuf.Duration delay = 2;
+}
+
+// DumpRecording request.
+message DumpRecordingRequest {
+  // The recording id.
+  uint64 id = 1;
+  // The destination file path on the server.
+  string destination = 2;
+}
+
+// Recording list.
+message Recordings {
+  // The recordings
+  repeated Recording recordings = 1;
+}
+
+// Recording configuration information.
+message Configuration {
+  // The settings for recordings that use this configuration.
+  map<string, string> settings = 1;
+  // The configuration name or an empty string if unspecified.
+  string name = 2;
+  // The configuration label or an empty string if unspecified.
+  string label = 3;
+  // The configuration description or an empty string if unspecified.
+  string description = 4;
+  // The configuration provider or an empty string if unspecified.
+  string provider = 5;
+  // The configuration contents or an empty string if unspecified.
+  string contents = 6;
+}
+
+// Configuration list.
+message Configurations {
+  // The configurations.
+  repeated Configuration configurations = 1;
+}
+
+// Recording information.
+message Recording {
+  // The recording id.
+  uint64 id = 1;
+  // The recording name.
+  string name = 2;
+  // The current state of the recording.
+  RecordingState state = 3;
+  // Indicates whether recording data will be automatically saved on exit.
+  bool dump_on_exit = 4;
+  // The current size of the recording, or 0 if not yet started.
+  uint64 size = 5;
+  // Indicates whether recording data is buffered to disk.
+  bool disk = 6;
+  // The maximum age of the recording, or unset if not specified.
+  google.protobuf.Duration max_age = 7;
+  // The maximum size of the recording, or 0 if not specified.
+  uint64 max_size = 8;
+  // The time when the recording was started, or unset if not yet started.
+  google.protobuf.Timestamp start_time = 9;
+  // The time when the recording was stopped, or unset if not yet stopped.
+  google.protobuf.Timestamp stop_time = 10;
+  // The destination file on the server if recording is to be saved automatically when stopped.
+  string destination = 11;
+  // The recording duration, or unset if not specified.
+  google.protobuf.Duration duration = 12;
+  // The recording settings.
+  map<string, string> settings = 13;
+}
+
+// StreamRecordingBytes request.
+message StreamRecordingBytesRequest {
+  // The recording id.
+  uint64 id = 1;
+  // The optional start time for the stream, otherwise the time when the recording was started.
+  google.protobuf.Timestamp start_time = 2;
+  // The optional end time for the stream, otherwise the time when the recording was stopped.
+  google.protobuf.Timestamp end_time = 3;
+}
+
+// StreamRecordingBytes response.
+message RecordingBytes {
+  // The next chunk of recording bytes.
+  bytes bytes = 1;
+}
+
+// Recording state.
+enum RecordingState {
+  // Not set.
+  STATE_UNSPECIFIED = 0;
+  // Recording not yet started.
+  STATE_NEW = 1;
+  // Recording scheduled to start after delay.
+  STATE_DELAYED = 2;
+  // Recording has been started.
+  STATE_RUNNING = 3;
+  // Recording has been stopped.
+  STATE_STOPPED = 4;
+  // Recording has been closed.
+  STATE_CLOSED = 5;
+}
+
+// Recording event type information.
+message EventType {
+  // The event name.
+  string name = 1;
+  // The event label, or an empty string if not set.
+  string label = 2;
+  // The event description, or an empty string if not set.
+  string description = 3;
+  // The event id.
+  uint64 id = 4;
+  // Indicates whether the event is enabled.
+  bool enabled = 5;
+  // The setting descriptors for the event.
+  repeated SettingDescriptor setting_descriptors = 6;
+  // The category names for the event.
+  repeated string category_names = 7;
+}
+
+// EventType list.
+message EventTypes {
+  // Event types.
+  repeated EventType event_types = 1;
+}
+
+// Recording event setting information.
+message SettingDescriptor {
+  // The setting name.
+  string name = 1;
+  // The setting label, or an empty string if not set.
+  string label = 2;
+  // The setting description, or an empty string if not set.
+  string description = 3;
+  // The setting content type, or an empty string if not set.
+  string content_type = 4;
+  // The class name for the event type associated with this setting.
+  string type_name = 5;
+  // The default value for the setting.
+  string default_value = 6;
+}
+

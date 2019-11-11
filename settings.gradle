@@ -1,0 +1,4 @@
+rootProject.name = 'jfrpc'
+
+include 'core'
+include 'cli'

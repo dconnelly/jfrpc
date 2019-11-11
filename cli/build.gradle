@@ -1,0 +1,25 @@
+plugins {
+  id 'application'
+}
+
+apply plugin: 'com.github.johnrengelman.shadow'
+
+dependencies {
+  implementation "info.picocli:picocli:${versions.picocli}"
+  implementation 'io.grpc:grpc-okhttp'
+  testImplementation 'io.grpc:grpc-netty'
+}
+
+application {
+  mainClassName = 'io.dconnelly.jfrpc.FlightRecorderCommand'
+}
+
+test {
+  jvmArgs '--limit-modules', 'java.base,java.logging,java.management,jdk.jfr,java.sql'
+}
+
+shadowJar {
+  archiveFileName = 'jfrpc.jar'
+  mergeServiceFiles()
+}
+

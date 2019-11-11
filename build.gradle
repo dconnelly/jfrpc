@@ -1,0 +1,114 @@
+plugins {
+  id 'net.ltgt.errorprone' version '1.1.1' apply false
+  id 'com.google.protobuf' version '0.8.11' apply false
+  id 'com.github.johnrengelman.shadow' version '5.2.0' apply false
+  id 'checkstyle'
+}
+
+ext.versions = [
+    'guava': '28.1-jre',
+    'grpc': '1.26.0',
+    'protobuf': '3.11.0',
+    'junit': '5.5.2',
+    'truth': '1.0',
+    'errorprone': '2.3.4',
+    'picocli': '4.1.4'
+]
+
+subprojects {
+  group 'io.dconnelly.jfrpc'
+  version '1.0-SNAPSHOT'
+
+  apply plugin: 'java'
+  apply plugin: 'idea'
+  apply plugin: 'checkstyle'
+  apply plugin: 'net.ltgt.errorprone'
+
+  repositories {
+    mavenCentral()
+  }
+
+  // Workaround for errorprone plugin resulting in duplicate versions of Guava.
+  // See https://github.com/tbroyer/gradle-errorprone-plugin/issues/16
+  configurations.all {
+    resolutionStrategy.force "com.google.guava:guava:${versions.guava}"
+  }
+
+  dependencies {
+    implementation platform("com.google.guava:guava-bom:${versions.guava}")
+    implementation platform("io.grpc:grpc-bom:${versions.grpc}")
+    implementation 'io.grpc:grpc-stub'
+    implementation 'io.grpc:grpc-protobuf'
+    implementation 'javax.annotation:javax.annotation-api:1.3.2'
+    implementation('com.google.guava:guava') {
+      force = true
+    }
+    implementation "com.google.protobuf:protobuf-java-util:${versions.protobuf}"
+    testImplementation platform("org.junit:junit-bom:${versions.junit}")
+    testImplementation "com.google.truth:truth:${versions.truth}"
+    testImplementation "com.google.truth.extensions:truth-java8-extension:${versions.truth}"
+    testImplementation "com.google.truth.extensions:truth-proto-extension:${versions.truth}"
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'io.grpc:grpc-testing'
+    errorprone("com.google.errorprone:error_prone_core:${versions.errorprone}")
+  }
+
+  java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+  }
+
+  tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-parameters', '-Xlint:deprecation']
+    options.errorprone {
+      disableWarningsInGeneratedCode = true
+      excludedPaths = ".*/build/generated/source/proto/[^/]+/java/.*"
+    }
+  }
+
+  if (fileTree(dir: 'src/main/proto').any()) {
+    apply plugin: 'com.google.protobuf'
+
+    protobuf {
+      protoc {
+        artifact = "com.google.protobuf:protoc:${versions.protobuf}"
+      }
+      plugins {
+        grpc {
+          artifact = "io.grpc:protoc-gen-grpc-java:${versions.grpc}"
+        }
+      }
+      generateProtoTasks {
+        all()*.plugins {
+          grpc {}
+        }
+      }
+    }
+
+    idea {
+      module {
+        // TODO See https://github.com/google/protobuf-gradle-plugin/issues/222
+        generatedSourceDirs += file("${protobuf.generatedFilesBaseDir}/main/java")
+        generatedSourceDirs += file("${protobuf.generatedFilesBaseDir}/main/grpc")
+      }
+    }
+  }
+
+  checkstyle {
+    toolVersion '8.24'
+  }
+
+  test {
+    useJUnitPlatform()
+    testLogging {
+      events "passed", "skipped", "failed"
+    }
+  }
+}
+
+project(':cli') {
+  dependencies {
+    implementation project(':core')
+  }
+}

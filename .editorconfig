@@ -1,0 +1,21 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 2
+indent_style = space
+insert_final_newline = true
+max_line_length = 100
+ij_continuation_indent_size = 4
+
+[*.{java,proto}]
+trim_trailing_whitespace = true
+# See https://youtrack.jetbrains.com/issue/IDEA-170643#focus=streamItem-27-3708697.0-0
+ij_java_imports_layout = $*,|,*
+#ij_java_imports_layout = $*,|,*,|,java.**,javax.**,jdk.**
+ij_java_layout_static_imports_separately = true
+ij_java_class_count_to_use_import_on_demand = 1000
+ij_java_names_count_to_use_import_on_demand = 1000
+ij_java_use_single_class_imports = true
+
